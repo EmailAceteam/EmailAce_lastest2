@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,9 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
     template: EmailTemplate,
     candidate: Candidate
   ) => {
+    if (!template?.bodyTemplate || !template?.subjectTemplate) {
+      throw new Error("Invalid email template");
+    }
     const candidateAge =
       new Date().getFullYear() -
       new Date(candidate.date_of_birth).getFullYear();
@@ -340,35 +344,43 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="jobDescription">Job Description (optional)</Label>
+        <Label htmlFor="jobDescription">Job Description (Optional)</Label>
         <Textarea
           id="jobDescription"
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
-          placeholder="e.g., Full-stack developer role at TechCorp..."
+          placeholder="Enter the job title or description to personalize the email..."
+          rows={5}
           disabled={isLoading}
         />
       </div>
 
-      {error && <div className="text-sm text-red-600">{error}</div>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex items-center justify-between">
-        <Button type="submit" disabled={isLoading}>
-          {id ? "Update Campaign" : "Create Campaign"}
+      <div className="flex gap-4">
+        <Button type="submit" className="flex-1" disabled={isLoading}>
+          {isLoading
+            ? id
+              ? "Updating..."
+              : "Creating..."
+            : id
+            ? "Update Campaign"
+            : "Create Campaign"}
         </Button>
 
         {id && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isLoading}>
-                Delete Campaign
+                Delete
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action will permanently delete the campaign.
+                  This action cannot be undone. This will permanently delete the
+                  campaign and all associated sent emails.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
