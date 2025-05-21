@@ -1,5 +1,6 @@
-
 export interface Candidate {
+  date_of_birth: string | number | Date;
+  language_level: string;
   id: string;
   name: string;
   information: string;
@@ -41,7 +42,7 @@ export interface SentEmailLog {
 }
 
 export interface Campaign {
-  id:string;
+  id: string;
   name: string;
   candidateId: string;
   candidate?: Candidate; // Populated

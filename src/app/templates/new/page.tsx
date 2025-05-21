@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import TemplateForm from "@/components/forms/TemplateForm";
 
 export default function NewTemplatePage() {
@@ -15,7 +21,10 @@ export default function NewTemplatePage() {
       <Card>
         <CardHeader>
           <CardTitle>Template Details</CardTitle>
-          <CardDescription>Define the subject and body for your email template. Use placeholders like {{candidateName}} or {{jobTitle}}.</CardDescription>
+          <CardDescription>
+            Define the subject and body for your email template. Use
+            placeholders like {"{{candidateName}}"} or {"{{jobTitle}}"}.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <TemplateForm />

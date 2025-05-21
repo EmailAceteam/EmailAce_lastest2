@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 interface CandidateFormProps {
   id?: string;
@@ -17,17 +35,16 @@ interface CandidateFormProps {
   };
 }
 
-const LANGUAGE_LEVELS = [
-  "Beginner",
-  "Intermediate",
-  "Advanced",
-  "Native"
-];
+const LANGUAGE_LEVELS = ["Beginner", "Intermediate", "Advanced", "Native"];
 
 export default function CandidateForm({ id, initialData }: CandidateFormProps) {
-  const [name, setName] = useState(initialData?.name || '');
-  const [dateOfBirth, setDateOfBirth] = useState(initialData?.date_of_birth || '');
-  const [languageLevel, setLanguageLevel] = useState(initialData?.language_level || LANGUAGE_LEVELS[0]);
+  const [name, setName] = useState(initialData?.name || "");
+  const [dateOfBirth, setDateOfBirth] = useState(
+    initialData?.date_of_birth || ""
+  );
+  const [languageLevel, setLanguageLevel] = useState(
+    initialData?.language_level || LANGUAGE_LEVELS[0]
+  );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -40,42 +57,44 @@ export default function CandidateForm({ id, initialData }: CandidateFormProps) {
 
     try {
       // Basic validation
-      if (!name.trim()) throw new Error('Please enter a name');
-      if (!dateOfBirth) throw new Error('Please enter date of birth');
-      if (!languageLevel) throw new Error('Please select language level');
+      if (!name.trim()) throw new Error("Please enter a name");
+      if (!dateOfBirth) throw new Error("Please enter date of birth");
+      if (!languageLevel) throw new Error("Please select language level");
 
       // Update or create the candidate
       const { error: supabaseError } = id
         ? await supabase
-            .from('candidates')
+            .from("candidates")
             .update({
               name,
               date_of_birth: dateOfBirth,
               language_level: languageLevel,
             })
-            .eq('id', id)
-        : await supabase
-            .from('candidates')
-            .insert([{
+            .eq("id", id)
+        : await supabase.from("candidates").insert([
+            {
               name,
               date_of_birth: dateOfBirth,
               language_level: languageLevel,
-            }]);
+            },
+          ]);
 
       if (supabaseError) throw supabaseError;
 
       toast({
         title: id ? "Candidate updated" : "Candidate created",
-        description: `Successfully ${id ? 'updated' : 'created'} candidate "${name}"`,
+        description: `Successfully ${
+          id ? "updated" : "created"
+        } candidate "${name}"`,
       });
 
-      router.push('/candidates');
+      router.push("/candidates");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : 'An error occurred',
+        description: err instanceof Error ? err.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -85,13 +104,13 @@ export default function CandidateForm({ id, initialData }: CandidateFormProps) {
 
   const handleDelete = async () => {
     if (!id) return;
-    
+
     setIsLoading(true);
     try {
       const { error: deleteError } = await supabase
-        .from('candidates')
+        .from("candidates")
         .delete()
-        .eq('id', id);
+        .eq("id", id);
 
       if (deleteError) throw deleteError;
 
@@ -100,7 +119,7 @@ export default function CandidateForm({ id, initialData }: CandidateFormProps) {
         description: `Successfully deleted candidate "${name}"`,
       });
 
-      router.push('/candidates');
+      router.push("/candidates");
       router.refresh();
     } catch (err) {
       toast({
@@ -141,12 +160,16 @@ export default function CandidateForm({ id, initialData }: CandidateFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="languageLevel">Language Level</Label>
-        <Select value={languageLevel} onValueChange={setLanguageLevel} disabled={isLoading}>
+        <Select
+          value={languageLevel}
+          onValueChange={setLanguageLevel}
+          disabled={isLoading}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select language level" />
           </SelectTrigger>
           <SelectContent>
-            {LANGUAGE_LEVELS.map(level => (
+            {LANGUAGE_LEVELS.map((level) => (
               <SelectItem key={level} value={level}>
                 {level}
               </SelectItem>
@@ -155,31 +178,39 @@ export default function CandidateForm({ id, initialData }: CandidateFormProps) {
         </Select>
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex gap-4">
         <Button type="submit" className="flex-1" disabled={isLoading}>
-          {isLoading ? (id ? "Updating..." : "Creating...") : (id ? 'Update Candidate' : 'Create Candidate')}
+          {isLoading
+            ? id
+              ? "Updating..."
+              : "Creating..."
+            : id
+            ? "Update Candidate"
+            : "Create Candidate"}
         </Button>
 
         {id && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isLoading}>Delete</Button>
+              <Button variant="destructive" disabled={isLoading}>
+                Delete
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the candidate
-                  and remove them from any campaigns.
+                  This action cannot be undone. This will permanently delete the
+                  candidate and remove them from any campaigns.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleDelete}>
+                  Delete
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
