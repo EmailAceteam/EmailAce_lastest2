@@ -1,4 +1,12 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import CampaignForm from "@/components/forms/CampaignForm";
 
 export default function NewCampaignPage() {
@@ -12,11 +20,13 @@ export default function NewCampaignPage() {
           Configure and launch your email outreach campaign.
         </p>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Campaign Details</CardTitle>
-          <CardDescription>Select the candidate, email list, and template for your campaign.</CardDescription>
+          <CardDescription>
+            Select the candidate, email list, and template for your campaign.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <CampaignForm />

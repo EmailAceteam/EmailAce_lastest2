@@ -29,6 +29,18 @@ interface TemplateFormProps {
   };
 }
 
+const REQUIRED_PLACEHOLDERS = [
+  { key: "candidateName", label: "Candidate Name" },
+  { key: "company", label: "Company Name" },
+  { key: "recipientName", label: "Recipient Name" },
+];
+
+const OPTIONAL_PLACEHOLDERS = [
+  { key: "position", label: "Position" },
+  { key: "candidateAge", label: "Candidate Age" },
+  { key: "languageLevel", label: "Language Level" },
+];
+
 export default function TemplateForm({ id, initialData }: TemplateFormProps) {
   const [name, setName] = useState(initialData?.name || "");
   const [subjectTemplate, setSubjectTemplate] = useState(
@@ -39,8 +51,20 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showOptionalWarning, setShowOptionalWarning] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  const validateTemplate = (template: string) => {
+    const missingRequired = REQUIRED_PLACEHOLDERS.filter(
+      ({ key }) => !template.includes(`{{${key}}}`)
+    );
+    const missingOptional = OPTIONAL_PLACEHOLDERS.filter(
+      ({ key }) => !template.includes(`{{${key}}}`)
+    );
+
+    return { missingRequired, missingOptional };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,13 +72,30 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
     setError(null);
 
     try {
-      // Basic validation
       if (!name.trim()) throw new Error("Please enter a template name");
       if (!subjectTemplate.trim())
         throw new Error("Please enter a subject template");
       if (!bodyTemplate.trim()) throw new Error("Please enter a body template");
 
-      // Update or create the template
+      // Validate required placeholders
+      const { missingRequired, missingOptional } =
+        validateTemplate(bodyTemplate);
+
+      if (missingRequired.length > 0) {
+        throw new Error(
+          `Missing required placeholders: ${missingRequired
+            .map((p) => p.label)
+            .join(", ")}`
+        );
+      }
+
+      if (missingOptional.length > 0 && !showOptionalWarning) {
+        setShowOptionalWarning(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Create or update template
       const { error: supabaseError } = id
         ? await supabase
             .from("email_templates")
@@ -64,15 +105,13 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
               body_template: bodyTemplate,
             })
             .eq("id", id)
-        : await supabase
-            .from("email_templates")
-            .insert([
-              {
-                name,
-                subject_template: subjectTemplate,
-                body_template: bodyTemplate,
-              },
-            ]);
+        : await supabase.from("email_templates").insert([
+            {
+              name,
+              subject_template: subjectTemplate,
+              body_template: bodyTemplate,
+            },
+          ]);
 
       if (supabaseError) throw supabaseError;
 
@@ -97,36 +136,6 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
     }
   };
 
-  const handleDelete = async () => {
-    if (!id) return;
-
-    setIsLoading(true);
-    try {
-      const { error: deleteError } = await supabase
-        .from("email_templates")
-        .delete()
-        .eq("id", id);
-
-      if (deleteError) throw deleteError;
-
-      toast({
-        title: "Template deleted",
-        description: `Successfully deleted template "${name}"`,
-      });
-
-      router.push("/templates");
-      router.refresh();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: "Failed to delete template",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
@@ -135,7 +144,7 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., Initial Application"
+          placeholder="e.g., Standard Job Application"
           required
           disabled={isLoading}
         />
@@ -147,14 +156,10 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
           id="subjectTemplate"
           value={subjectTemplate}
           onChange={(e) => setSubjectTemplate(e.target.value)}
-          placeholder="e.g., Application from {{candidateName}} - {{languageLevel}} level"
+          placeholder="e.g., Application from {{candidateName}} for {{position}}"
           required
           disabled={isLoading}
         />
-        <p className="text-sm text-muted-foreground">
-          Available placeholders:{" "}
-          {"{{ candidateName }}, {{ candidateAge }}, {{ languageLevel }}"}
-        </p>
       </div>
 
       <div className="space-y-2">
@@ -163,67 +168,85 @@ export default function TemplateForm({ id, initialData }: TemplateFormProps) {
           id="bodyTemplate"
           value={bodyTemplate}
           onChange={(e) => setBodyTemplate(e.target.value)}
-          placeholder="Dear {{recipientName}},
+          placeholder={`Dear {{recipientName}},
 
-I am {{candidateName}}, a {{languageLevel}} level candidate. I am {{candidateAge}} years old.
+I am {{candidateName}}, and I am writing to express my interest in the {{position}} position at {{company}}.
 
-I am writing to express my interest in the position..."
+[Your template content here]
+
+Best regards,
+{{candidateName}}`}
           rows={10}
           required
           disabled={isLoading}
         />
-        <p className="text-sm text-muted-foreground">
-          Available placeholders:
-          <br />- {"{{ candidateName }}"} - The candidate's full name
-          <br />- {"{{ candidateAge }}"} - The candidate's age (calculated from
-          date of birth)
-          <br />- {"{{ languageLevel }}"} - The candidate's language proficiency
-          level
-          <br />- {"{{ recipientName }}"} - The recipient's name
-          <br />- {"{{ position }}"} - The position being applied for
-          <br />- {"{{ company }}"} - The company name
-        </p>
-        
+        <div className="text-sm text-muted-foreground space-y-2">
+          <p className="font-medium">Required placeholders:</p>
+          <ul className="list-disc list-inside">
+            {REQUIRED_PLACEHOLDERS.map(({ key, label }) => (
+              <li key={key}>
+                <code>{`{{${key}}}`}</code> - {label}
+              </li>
+            ))}
+          </ul>
+          <p className="font-medium mt-4">
+            Optional placeholders (recommended):
+          </p>
+          <ul className="list-disc list-inside">
+            {OPTIONAL_PLACEHOLDERS.map(({ key, label }) => (
+              <li key={key}>
+                <code>{`{{${key}}}`}</code> - {label}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex gap-4">
-        <Button type="submit" className="flex-1" disabled={isLoading}>
-          {isLoading
-            ? id
-              ? "Updating..."
-              : "Creating..."
-            : id
-            ? "Update Template"
-            : "Create Template"}
-        </Button>
+      <AlertDialog
+        open={showOptionalWarning}
+        onOpenChange={setShowOptionalWarning}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Missing Optional Placeholders</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your template is missing some optional placeholders that could
+              make your email more personalized:
+              <ul className="list-disc list-inside mt-2">
+                {validateTemplate(bodyTemplate).missingOptional.map(
+                  ({ key, label }) => (
+                    <li key={key}>{label}</li>
+                  )
+                )}
+              </ul>
+              Would you like to continue anyway?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, I'll add them</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowOptionalWarning(false);
+                handleSubmit(new Event("submit") as any);
+              }}
+            >
+              Yes, continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {id && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isLoading}>
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the
-                  template and remove it from any campaigns that use it.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading
+          ? id
+            ? "Updating..."
+            : "Creating..."
+          : id
+          ? "Update Template"
+          : "Create Template"}
+      </Button>
     </form>
   );
 }
