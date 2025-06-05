@@ -53,6 +53,5 @@ export interface Campaign {
   status: CampaignStatus;
   createdAt: Date;
   updatedAt: Date;
-  sentEmails: SentEmailLog[];
   jobDescription?: string; // Added for generateEmailDraft
 }
