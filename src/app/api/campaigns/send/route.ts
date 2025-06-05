@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   let campaignId: string = "";
   let recipientEmail: string = "";
 
+  
   try {
     const body: EmailRequest = await request.json();
     campaignId = body.campaignId;
