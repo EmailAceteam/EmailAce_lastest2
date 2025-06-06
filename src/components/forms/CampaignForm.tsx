@@ -30,7 +30,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui/Collapsible";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface CampaignFormProps {

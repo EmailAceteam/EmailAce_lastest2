@@ -1,3 +1,5 @@
+/*
+
 // app/api/campaigns/send/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
@@ -122,3 +124,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+
+*/

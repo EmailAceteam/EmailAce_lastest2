@@ -45,11 +45,8 @@ export interface Campaign {
   id: string;
   name: string;
   candidateId: string;
-  candidate?: Candidate; // Populated
   emailListId: string;
-  emailList?: EmailList; // Populated
   templateId: string;
-  template?: EmailTemplate; // Populated
   status: CampaignStatus;
   createdAt: Date;
   updatedAt: Date;
