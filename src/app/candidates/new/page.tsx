@@ -2,7 +2,7 @@
 // import CandidateForm from "@/components/forms/CandidateForm"; // Will be created later
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import CandidateForm from "@/components/ui/CandidateForm";
+import CandidateForm from "@/components/forms/CandidateForm";
  
 
 export default function NewCandidatePage() {
@@ -23,7 +23,7 @@ export default function NewCandidatePage() {
           <CardDescription>Fill in the form below to add a new candidate.</CardDescription>
         </CardHeader>
         <CardContent>
-          {<CandidateForm/>}
+          <CandidateForm/>
           <p className="text-center text-muted-foreground py-8">Candidate form will be here.</p>
         </CardContent>
       </Card>

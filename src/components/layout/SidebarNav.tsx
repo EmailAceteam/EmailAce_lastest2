@@ -9,6 +9,7 @@ import {
   ListChecks,
   FileText,
   Send,
+  Mails,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -53,8 +54,14 @@ const navItems: NavItem[] = [
   {
     href: "/campaigns",
     label: "Campaigns",
-    icon: Send,
+    icon: Mails,
     tooltip: "Manage Campaigns",
+  },
+  {
+    href: "/controlcenter",
+    label: "Control Center",
+    icon: Send,
+    tooltip: "Campaigns Center Control",
   },
 ];
 

@@ -41,10 +41,13 @@ interface CampaignFormProps {
     email_list_id: string;
     template_id: string;
     job_description?: string;
+    email_subject?: string;
+    generated_email_content?: string;
   };
 }
 
 export default function CampaignForm({ id, initialData }: CampaignFormProps) {
+  // États du formulaire
   const [name, setName] = useState(initialData?.name || "");
   const [candidateId, setCandidateId] = useState(
     initialData?.candidate_id || ""
@@ -56,18 +59,32 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
   const [jobDescription, setJobDescription] = useState(
     initialData?.job_description || ""
   );
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [expandedList, setExpandedList] = useState<string | null>(null);
+  const [emailSubject, setEmailSubject] = useState(
+    initialData?.email_subject || ""
+  );
+  const [generatedContent, setGeneratedContent] = useState(
+    initialData?.generated_email_content ||
+      "<p>Sélectionnez un modèle pour voir l'aperçu</p>"
+  );
 
-  // State for dropdown options
+  // États pour les données
+  const [rawTemplate, setRawTemplate] = useState({
+    content: "",
+    subject: "",
+  });
   const [candidates, setCandidates] = useState<any[]>([]);
   const [emailLists, setEmailLists] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
 
+  // États UI
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [expandedList, setExpandedList] = useState<string | null>(null);
+
   const router = useRouter();
   const { toast } = useToast();
 
+  // Charger les options du formulaire
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -98,18 +115,92 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
     fetchOptions();
   }, [toast]);
 
+  // Charger le template sélectionné
+  useEffect(() => {
+    const loadTemplate = async () => {
+      if (!templateId) return;
+
+      const { data: template } = await supabase
+        .from("email_templates")
+        .select("*")
+        .eq("id", templateId)
+        .single();
+
+      if (template) {
+        setRawTemplate({
+          content: template.content,
+          subject: template.subject,
+        });
+        setGeneratedContent(template.content);
+        setEmailSubject(template.subject);
+      }
+    };
+
+    loadTemplate();
+  }, [templateId]);
+
+  // Mettre à jour l'aperçu quand les données changent
+  useEffect(() => {
+    updatePreview();
+  }, [candidateId, rawTemplate, jobDescription]);
+
+  const updatePreview = () => {
+    if (!rawTemplate.content) return;
+
+    let content = rawTemplate.content;
+    let subject = emailSubject;
+
+    // Remplacer les placeholders si un candidat est sélectionné
+    if (candidateId) {
+      const candidate = candidates.find((c) => c.id === candidateId);
+      if (candidate) {
+        // Remplacer les placeholders spécifiques
+        content = content
+          .replace(/{{candidateName}}/g, candidate.name || "")
+          .replace(
+            /{{candidateAge}}/g,
+            candidate.birth_date
+              ? (
+                  new Date().getFullYear() -
+                  new Date(candidate.birth_date).getFullYear()
+                ).toString()
+              : ""
+          )
+          .replace(/{{languageLevel}}/g, candidate.language_level || "");
+
+        subject = subject.replace(/{{candidateName}}/g, candidate.name || "");
+      }
+    }
+
+    // Remplacer les infos sur le poste si description fournie
+    if (jobDescription) {
+      const jobTitle = jobDescription.split("\n")[0] || "";
+      content = content
+        .replace(/{{jobTitle}}/g, jobTitle)
+        .replace(/{{jobDescription}}/g, jobDescription);
+    }
+
+    setGeneratedContent(content);
+    setEmailSubject(subject);
+  };
+
+  // Soumission du formulaire
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      if (!name.trim()) throw new Error("Please enter a campaign name");
-      if (!candidateId) throw new Error("Please select a candidate");
-      if (!emailListId) throw new Error("Please select an email list");
-      if (!templateId) throw new Error("Please select a template");
+      // Validation des champs obligatoires
+      if (!name.trim()) throw new Error("Veuillez entrer un nom de campagne");
+      if (!candidateId) throw new Error("Veuillez sélectionner un candidat");
+      if (!emailListId)
+        throw new Error("Veuillez sélectionner une liste d'emails");
+      if (!templateId) throw new Error("Veuillez sélectionner un modèle");
+      if (!emailSubject.trim())
+        throw new Error("Veuillez entrer un sujet d'email");
 
-      // Create or update campaign
+      // Sauvegarde en base de données
       const { data: campaign, error: supabaseError } = id
         ? await supabase
             .from("campaigns")
@@ -119,6 +210,8 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
               email_list_id: emailListId,
               template_id: templateId,
               job_description: jobDescription || null,
+              email_subject: emailSubject,
+              generated_email_content: generatedContent,
               status: "draft",
               updated_at: new Date().toISOString(),
             })
@@ -134,6 +227,8 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
                 email_list_id: emailListId,
                 template_id: templateId,
                 job_description: jobDescription || null,
+                email_subject: emailSubject,
+                generated_email_content: generatedContent,
                 status: "draft",
                 user_id: (await supabase.auth.getUser()).data.user?.id,
               },
@@ -142,20 +237,26 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
             .single();
 
       if (supabaseError) throw supabaseError;
-      if (!campaign) throw new Error("Failed to save campaign");
+      if (!campaign) throw new Error("Échec de l'enregistrement");
 
+      // Notification de succès
       toast({
-        title: id ? "Campaign updated" : "Campaign created",
-        description: `Successfully ${id ? "updated" : "created"} campaign "${name}"`,
+        title: id ? "Campagne mise à jour" : "Campagne créée",
+        description: `Campagne "${name}" ${
+          id ? "mise à jour" : "créée"
+        } avec succès`,
       });
 
+      // Redirection
       router.push("/campaigns");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      // Gestion des erreurs
+      setError(err instanceof Error ? err.message : "Une erreur est survenue");
       toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "An error occurred",
+        title: "Erreur",
+        description:
+          err instanceof Error ? err.message : "Une erreur est survenue",
         variant: "destructive",
       });
     } finally {
@@ -163,29 +264,31 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
     }
   };
 
+  // Suppression d'une campagne
   const handleDelete = async () => {
     if (!id) return;
 
     setIsLoading(true);
     try {
-      const { error: deleteError } = await supabase
-        .from("campaigns")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("campaigns").delete().eq("id", id);
 
-      if (deleteError) throw deleteError;
+      if (error) throw error;
 
       toast({
-        title: "Campaign deleted",
-        description: `Successfully deleted campaign "${name}"`,
+        title: "Campagne supprimée",
+        description: "La campagne a été supprimée avec succès",
       });
 
       router.push("/campaigns");
       router.refresh();
     } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
+      );
       toast({
-        title: "Error",
-        description: "Failed to delete campaign",
+        title: "Erreur",
+        description:
+          err instanceof Error ? err.message : "Erreur lors de la suppression",
         variant: "destructive",
       });
     } finally {
@@ -193,169 +296,209 @@ export default function CampaignForm({ id, initialData }: CampaignFormProps) {
     }
   };
 
+  // Toggle l'expansion de la liste d'emails
   const toggleListExpansion = (listId: string) => {
     setExpandedList(expandedList === listId ? null : listId);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="name">Campaign Name</Label>
-        <Input
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., Q2 Tech Companies Outreach"
-          required
-          disabled={isLoading}
-        />
-      </div>
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* Colonne de gauche - Formulaire */}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nom de la campagne *</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="ex: Campagne Q2 Entreprises Tech"
+                required
+                disabled={isLoading}
+              />
+            </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="candidate">Candidate</Label>
-        <Select
-          value={candidateId}
-          onValueChange={setCandidateId}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a candidate" />
-          </SelectTrigger>
-          <SelectContent>
-            {candidates.map((candidate) => (
-              <SelectItem key={candidate.id} value={candidate.id}>
-                {candidate.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <div className="space-y-2">
+              <Label htmlFor="candidate">Candidat *</Label>
+              <Select
+                value={candidateId}
+                onValueChange={setCandidateId}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez un candidat" />
+                </SelectTrigger>
+                <SelectContent>
+                  {candidates.map((candidate) => (
+                    <SelectItem key={candidate.id} value={candidate.id}>
+                      {candidate.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="emailList">Email List</Label>
-        <Select
-          value={emailListId}
-          onValueChange={setEmailListId}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select an email list" />
-          </SelectTrigger>
-          <SelectContent>
-            {emailLists.map((list) => (
-              <SelectItem key={list.id} value={list.id}>
-                {list.name} ({list.emails.length} emails)
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Email list preview */}
-        {emailListId && (
-          <div className="mt-2 border rounded-lg p-4">
-            {emailLists
-              .filter((list) => list.id === emailListId)
-              .map((list) => (
-                <Collapsible
-                  key={list.id}
-                  open={expandedList === list.id}
-                  onOpenChange={() => toggleListExpansion(list.id)}
-                >
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
-                    {expandedList === list.id ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <span className="font-medium">
+            <div className="space-y-2">
+              <Label htmlFor="emailList">Liste d'emails *</Label>
+              <Select
+                value={emailListId}
+                onValueChange={setEmailListId}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une liste d'emails" />
+                </SelectTrigger>
+                <SelectContent>
+                  {emailLists.map((list) => (
+                    <SelectItem key={list.id} value={list.id}>
                       {list.name} ({list.emails.length} emails)
-                    </span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 pl-6">
-                    <div className="max-h-60 overflow-y-auto border rounded p-2 bg-muted/50">
-                      {list.emails.map((email: string) => (
-                        <div key={email} className="py-1 text-sm">
-                          {email}
-                        </div>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {emailListId && (
+                <div className="mt-2 border rounded-lg p-4">
+                  {emailLists
+                    .filter((list) => list.id === emailListId)
+                    .map((list) => (
+                      <Collapsible
+                        key={list.id}
+                        open={expandedList === list.id}
+                        onOpenChange={() => toggleListExpansion(list.id)}
+                      >
+                        <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
+                          {expandedList === list.id ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <span className="font-medium">
+                            {list.name} ({list.emails.length} emails)
+                          </span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2 pl-6">
+                          <div className="max-h-60 overflow-y-auto border rounded p-2 bg-muted/50">
+                            {list.emails.map((email: string) => (
+                              <div key={email} className="py-1 text-sm">
+                                {email}
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="template">Modèle d'email *</Label>
+              <Select
+                value={templateId}
+                onValueChange={setTemplateId}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez un modèle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="emailSubject">Sujet de l'email *</Label>
+              <Input
+                id="emailSubject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Sujet de l'email"
+                required
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jobDescription">
+                Description du poste (Optionnel)
+              </Label>
+              <Textarea
+                id="jobDescription"
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Entrez le titre ou la description du poste..."
+                rows={3}
+                disabled={isLoading}
+              />
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="template">Email Template</Label>
-        <Select
-          value={templateId}
-          onValueChange={setTemplateId}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a template" />
-          </SelectTrigger>
-          <SelectContent>
-            {templates.map((template) => (
-              <SelectItem key={template.id} value={template.id}>
-                {template.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          {/* Colonne de droite - Aperçu */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Aperçu du message</Label>
+              <div className="border rounded-lg p-4 h-full min-h-[400px]">
+                <div className="font-medium mb-2">
+                  Sujet: {emailSubject || "[Aucun sujet]"}
+                </div>
+                <div className="border-t pt-2">
+                  <iframe
+                    srcDoc={generatedContent}
+                    className="w-full h-[350px] border rounded bg-white"
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="jobDescription">Job Description (Optional)</Label>
-        <Textarea
-          id="jobDescription"
-          value={jobDescription}
-          onChange={(e) => setJobDescription(e.target.value)}
-          placeholder="Enter the job title or description to personalize the email..."
-          rows={5}
-          disabled={isLoading}
-        />
-      </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="flex gap-4">
+          <Button type="submit" className="flex-1" disabled={isLoading}>
+            {isLoading
+              ? id
+                ? "Mise à jour..."
+                : "Création..."
+              : id
+              ? "Mettre à jour la campagne"
+              : "Créer la campagne"}
+          </Button>
 
-      <div className="flex gap-4">
-        <Button type="submit" className="flex-1" disabled={isLoading}>
-          {isLoading
-            ? id
-              ? "Updating..."
-              : "Creating..."
-            : id
-              ? "Update Campaign"
-              : "Create Campaign"}
-        </Button>
-
-        {id && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isLoading}>
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the
-                  campaign and all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </div>
-    </form>
+          {id && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={isLoading}>
+                  Supprimer
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cette action est irréversible. La campagne et toutes ses
+                    données associées seront définitivement supprimées.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>
+                    Confirmer la suppression
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </form>
+    </div>
   );
 }
