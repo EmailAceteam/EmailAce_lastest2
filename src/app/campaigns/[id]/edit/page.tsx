@@ -1,3 +1,4 @@
+// src/app/campaigns/[id]/edipage.tsx
 import {
   Card,
   CardContent,

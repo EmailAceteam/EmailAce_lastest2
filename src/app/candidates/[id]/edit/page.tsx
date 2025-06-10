@@ -1,3 +1,5 @@
+// src/app/candidates/[id]/edit/pagex.tsx
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CandidateForm from "@/components/forms/CandidateForm";
 import { supabase } from '@/lib/supabase';

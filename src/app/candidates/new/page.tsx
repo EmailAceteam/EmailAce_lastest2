@@ -1,9 +1,15 @@
+// src/app/candidates/new/pagex.tsx
 
 // import CandidateForm from "@/components/forms/CandidateForm"; // Will be created later
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import CandidateForm from "@/components/forms/CandidateForm";
- 
 
 export default function NewCandidatePage() {
   return (
@@ -16,15 +22,19 @@ export default function NewCandidatePage() {
           Enter the details for the new candidate profile.
         </p>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Candidate Information</CardTitle>
-          <CardDescription>Fill in the form below to add a new candidate.</CardDescription>
+          <CardDescription>
+            Fill in the form below to add a new candidate.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <CandidateForm/>
-          <p className="text-center text-muted-foreground py-8">Candidate form will be here.</p>
+          <CandidateForm />
+          <p className="text-center text-muted-foreground py-8">
+            Candidate form will be here.
+          </p>
         </CardContent>
       </Card>
     </div>
